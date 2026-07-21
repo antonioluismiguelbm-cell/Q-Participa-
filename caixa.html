@@ -4,46 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Caixa - Franguité Q Participa</title>
-
-    <!-- Firebase SDK Compat (Ideal para GitHub Pages e HTML puro) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; padding: 15px; }
-        header { background-color: #b71c1c; color: white; padding: 15px; text-align: center; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        header h1 { font-size: 20px; }
-        .status-bar { text-align: center; margin-bottom: 15px; font-size: 14px; color: #666; font-weight: bold; }
-        #lista-pedidos { display: flex; flex-direction: column; gap: 15px; max-width: 600px; margin: 0 auto; }
-        .card-pedido { background: white; border-radius: 8px; padding: 15px; border-left: 6px solid #ff9800; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
-        .card-pedido.concluido { border-left-color: #4caf50; opacity: 0.7; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; }
-        .cliente-nome { font-weight: bold; font-size: 16px; color: #111; }
-        .hora-pedido { font-size: 12px; color: #888; }
-        .detalhes-pedido { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
-        .total-pedido { font-weight: bold; font-size: 16px; color: #b71c1c; margin-top: 5px; }
-        .acoes { display: flex; gap: 10px; margin-top: 10px; }
-        button { flex: 1; padding: 10px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13px; }
-        .btn-concluir { background-color: #4caf50; color: white; }
-        .btn-excluir { background-color: #f44336; color: white; }
-        .vazio { text-align: center; padding: 30px; color: #888; font-style: italic; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; color: #333; padding: 15px; }
+        header { 
+            background: linear-gradient(135deg, #b71c1c, #e65100); 
+            color: white; padding: 15px 20px; border-radius: 10px; 
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 18px; }
+        .clock { font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 20px; }
+        .grid-orders { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .order-card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 5px solid #e65100; }
+        .order-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+        .client-info { background: #fafafa; padding: 8px; border-radius: 5px; font-size: 13px; margin-bottom: 10px; }
+        .items-list { margin-bottom: 10px; font-size: 14px; list-style: none; }
+        .items-list li { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #eee; }
+        .total { font-weight: bold; color: #2e7d32; text-align: right; font-size: 16px; margin-top: 5px; }
+        .btn-status { width: 100%; padding: 10px; border: none; border-radius: 5px; background: #2e7d32; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
+        .sound-banner {
+            background: #fff3e0; border: 1px solid #ffe0b2; padding: 12px; border-radius: 8px;
+            margin-bottom: 15px; text-align: center; font-size: 14px; color: #e65100; font-weight: bold;
+            cursor: pointer;
+        }
+
+        .alarm-banner {
+            background: #ffebee; border: 2px solid #f44336; padding: 12px; border-radius: 8px;
+            margin-bottom: 15px; text-align: center; font-size: 15px; color: #c62828; font-weight: bold;
+            display: none; cursor: pointer; animation: piscar 1s infinite;
+        }
+
+        @keyframes piscar {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
+
+    <!-- Bibliotecas do Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
     <header>
-        <h1>🍗 Franguité Q Participa — Painel do Caixa</h1>
+        <h1>🍗 Franguité Q Participa - Caixa</h1>
+        <div class="clock" id="relogio">00:00:00</div>
     </header>
 
-    <div class="status-bar" id="status-conexao">🔄 Conectando ao Firebase...</div>
+    <div class="sound-banner" id="bannerSom" onclick="ativarAudio()">
+        🔔 Clica aqui uma vez ao abrir a página para ATIVAR o Som das Notificações
+    </div>
 
-    <div id="lista-pedidos">
-        <div class="vazio">Aguardando novos pedidos...</div>
+    <div class="alarm-banner" id="bannerAlarme" onclick="pararAlarme()">
+        🚨 NOVO PEDIDO CHEGOU! Clica aqui para silenciar o alarme
+    </div>
+
+    <div class="grid-orders" id="listaPedidos">
+        <p style="text-align: center; grid-column: 1/-1;">A aguardar novos pedidos...</p>
     </div>
 
     <script>
-        // AS TUAS CREDENCIAIS EXATAS DO NOVO FIREBASE
+        // Credenciais do projeto q-participa-8793b
         const firebaseConfig = {
             apiKey: "AIzaSyD-xiOuu-DyvLgDnslK-Lmho78FxTqkOh8",
             authDomain: "q-participa-8793b.firebaseapp.com",
@@ -54,67 +78,129 @@
             appId: "1:364737736016:web:ce90969cd41a28f6a75055"
         };
 
-        // Inicializar o Firebase
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const database = firebase.database();
 
-        const statusEl = document.getElementById('status-conexao');
-        const listaEl = document.getElementById('lista-pedidos');
+        // Sistema de Som
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioPermitido = false;
+        let intervaloSom = null;
 
-        // Escutar novos pedidos em tempo real
+        function ativarAudio() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            audioPermitido = true;
+            document.getElementById('bannerSom').style.display = 'none';
+        }
+
+        function emitirBeep() {
+            if (!audioPermitido) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.6);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.6);
+            } catch (e) {
+                console.log("Erro áudio", e);
+            }
+        }
+
+        function iniciarAlarmeLoop() {
+            if (intervaloSom === null) {
+                emitirBeep();
+                intervaloSom = setInterval(emitirBeep, 1500);
+            }
+            if (audioPermitido) {
+                document.getElementById('bannerAlarme').style.display = 'block';
+            }
+        }
+
+        function pararAlarme() {
+            if (intervaloSom !== null) {
+                clearInterval(intervaloSom);
+                intervaloSom = null;
+            }
+            document.getElementById('bannerAlarme').style.display = 'none';
+        }
+
+        // Relógio
+        setInterval(() => {
+            document.getElementById('relogio').innerText = new Date().toLocaleTimeString('pt-PT');
+        }, 1000);
+
+        let primeiraCarga = true;
+
+        // Escutar Pedidos
         database.ref('pedidos').on('value', (snapshot) => {
-            statusEl.innerText = "🟢 Conectado ao Caixa em Tempo Real";
-            statusEl.style.color = "green";
-            
+            const container = document.getElementById('listaPedidos');
+            container.innerHTML = '';
             const pedidos = snapshot.val();
-            listaEl.innerHTML = '';
 
             if (!pedidos) {
-                listaEl.innerHTML = '<div class="vazio">Nenhum pedido no momento.</div>';
+                container.innerHTML = '<p style="text-align: center; grid-column: 1/-1;">Nenhum pedido pendente.</p>';
+                primeiraCarga = false;
+                pararAlarme();
                 return;
             }
 
-            const chaves = Object.keys(pedidos).reverse();
+            if (!primeiraCarga) {
+                iniciarAlarmeLoop();
+            }
+            primeiraCarga = false;
 
-            chaves.forEach((id) => {
-                const item = pedidos[id];
-                const card = document.createElement('div');
-                card.className = `card-pedido ${item.status === 'Concluído' ? 'concluido' : ''}`;
+            Object.keys(pedidos).reverse().forEach(key => {
+                const p = pedidos[key];
+                let itensHTML = '';
 
-                card.innerHTML = `
-                    <div class="card-header">
-                        <span class="cliente-nome">👤 ${item.cliente || 'Cliente'}</span>
-                        <span class="hora-pedido">⏰ ${item.hora || ''}</span>
-                    </div>
-                    <div class="detalhes-pedido">
-                        <div><strong>📍 Endereço:</strong> ${item.endereco || 'Não informado'}</div>
-                        <div><strong>💳 Pagamento:</strong> ${item.pagamento || 'N/A'}</div>
-                        <div style="margin-top:6px;"><strong>🍗 Itens:</strong> ${item.itens || item.descricao || 'Sem detalhes'}</div>
-                        <div class="total-pedido">Total: KZ ${(item.total || 0).toLocaleString('pt-AO')}</div>
-                    </div>
-                    <div class="acoes">
-                        <button class="btn-concluir" onclick="marcarConcluido('${id}')">
-                            ${item.status === 'Concluído' ? '✓ Concluído' : 'Concluir Pedido'}
-                        </button>
-                        <button class="btn-excluir" onclick="removerPedido('${id}')">🗑️ Eliminar</button>
+                if (p.itens) {
+                    if (Array.isArray(p.itens)) {
+                        p.itens.forEach(item => {
+                            if (typeof item === 'object') {
+                                itensHTML += `<li><span>${item.nome || 'Item'} x${item.qtd || 1}</span> <span>${(item.preco || 0) * (item.qtd || 1)} KZ</span></li>`;
+                            } else {
+                                itensHTML += `<li><span>${item}</span></li>`;
+                            }
+                        });
+                    } else if (typeof p.itens === 'string') {
+                        itensHTML = `<li><span>${p.itens}</span></li>`;
+                    }
+                } else if (p.descricao) {
+                    itensHTML = `<li><span>${p.descricao}</span></li>`;
+                }
+
+                container.innerHTML += `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <span>Pedido #${key.slice(-4)}</span>
+                            <small>${p.hora || ''}</small>
+                        </div>
+                        <div class="client-info">
+                            <strong>Cliente:</strong> ${p.cliente || 'Anónimo'}<br>
+                            <strong>Obs/Endereço:</strong> ${p.obs || p.endereco || 'Nenhuma'}<br>
+                            <strong>Pagamento:</strong> ${p.pagamento || 'N/A'}
+                        </div>
+                        <ul class="items-list">${itensHTML}</ul>
+                        <div class="total">Total: KZ ${p.total || 0}</div>
+                        <button class="btn-status" onclick="concluirPedido('${key}')">✔ Concluir / Confeccionado</button>
                     </div>
                 `;
-
-                listaEl.appendChild(card);
             });
-        }, (error) => {
-            statusEl.innerText = "🔴 Erro ao conectar com a base de dados!";
-            statusEl.style.color = "red";
-            console.error(error);
         });
 
-        function marcarConcluido(id) {
-            database.ref('pedidos/' + id).update({ status: 'Concluído' });
-        }
-
-        function removerPedido(id) {
-            if (confirm("Tens a certeza que queres apagar este pedido?")) {
+        function concluirPedido(id) {
+            if (confirm("Marcar pedido como concluído?")) {
                 database.ref('pedidos/' + id).remove();
+                pararAlarme();
             }
         }
     </script>
