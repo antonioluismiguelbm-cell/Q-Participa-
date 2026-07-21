@@ -15,7 +15,6 @@
         label { display: block; font-size: 13px; margin: 10px 0 4px; font-weight: 600; color: #555; }
         input, select { width: 100%; padding: 11px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background-color: #fafafa; }
         
-        /* Estilo dos Itens com Imagem */
         .item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; gap: 10px; }
         .item:last-child { border-bottom: none; }
         .item-details { display: flex; align-items: center; gap: 12px; flex: 1; }
@@ -41,7 +40,6 @@
 
     <div class="container">
         
-        <!-- Dados do Cliente -->
         <div class="card">
             <h3>📍 Dados para Entrega</h3>
             <label>Nome do Cliente</label>
@@ -65,7 +63,6 @@
             </select>
         </div>
 
-        <!-- Opções do Cardápio -->
         <div class="card">
             <h3>🍗 Pratos Principais</h3>
             
@@ -92,7 +89,6 @@
             </div>
         </div>
 
-        <!-- Acompanhamentos Extra -->
         <div class="card">
             <h3>🍌 Acompanhamentos Extra</h3>
 
@@ -134,7 +130,6 @@
             </div>
         </div>
 
-        <!-- Botões de Ação -->
         <div class="btn-group">
             <button class="btn btn-whatsapp" onclick="processarPedido()">📱 Enviar Pedido</button>
             <a href="tel:927444003" class="btn btn-call">📞 Ligar</a>
@@ -142,16 +137,22 @@
 
     </div>
 
-    <!-- Firebase SDK Compat -->
+    <!-- Firebase SDK (Compatível) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-        // Configuração do Firebase
+        // Configuração completa do Firebase
         const firebaseConfig = {
-            databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyCaixaTexteKeyDummy",
+            authDomain: "caixa-texte.firebaseapp.com",
+            databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com",
+            projectId: "caixa-texte"
         };
-        firebase.initializeApp(firebaseConfig);
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const database = firebase.database();
 
         function calcularTotal() {
@@ -191,48 +192,48 @@
                 return;
             }
 
-            // Montar lista de itens para o Firebase
+            // Formatação dos itens para o Caixa
             let listaItens = [];
-            if (qInteiro > 0) listaItens.push({ nome: "1 Frango Inteiro + Batata", preco: 9000 * qInteiro, qtd: qInteiro });
-            if (qMeio > 0) listaItens.push({ nome: "Meio Frango + Batata", preco: 5000 * qMeio, qtd: qMeio });
-            if (qKikwanga > 0) listaItens.push({ nome: "Kikwanga", preco: 1000 * qKikwanga, qtd: qKikwanga });
-            if (qFumbua > 0) listaItens.push({ nome: "Fumbua", preco: 1000 * qFumbua, qtd: qFumbua });
-            if (qBanana > 0) listaItens.push({ nome: "Banana Frita", preco: 1000 * qBanana, qtd: qBanana });
+            if (qInteiro > 0) listaItens.push(`${qInteiro}x Frango Inteiro + Batata`);
+            if (qMeio > 0) listaItens.push(`${qMeio}x Meio Frango + Batata`);
+            if (qKikwanga > 0) listaItens.push(`${qKikwanga}x Kikwanga`);
+            if (qFumbua > 0) listaItens.push(`${qFumbua}x Fumbua`);
+            if (qBanana > 0) listaItens.push(`${qBanana}x Banana Frita`);
+
+            let agora = new Date();
+            let horaFormatada = agora.getHours().toString().padStart(2, '0') + ':' + agora.getMinutes().toString().padStart(2, '0');
 
             const novoPedido = {
                 cliente: nome,
                 endereco: endereco,
-                itens: listaItens,
+                itens: listaItens.join(', '),
                 taxa: taxa,
                 total: total,
                 pagamento: pagamento,
-                hora: new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
+                hora: horaFormatada,
                 status: 'Pendente'
             };
 
-            // Enviar para o Firebase Caixa em tempo real
+            // Guardar no Firebase (nó /pedidos)
             database.ref('pedidos').push(novoPedido).then(() => {
+                alert("Pedido enviado para o Caixa com sucesso!");
 
-                // Abrir também no WhatsApp para notificar
+                // Redireciona para o WhatsApp do restaurante
                 let meutelemovel = "244927444003"; 
                 let mensagem = `*NOVO PEDIDO - FRANGUITÉ Q PARTICIPA*%0A%0A` +
                                `👤 *Cliente:* ${nome}%0A` +
                                `📍 *Endereço:* ${endereco}%0A` +
                                `💳 *Pagamento:* ${pagamento}%0A%0A` +
                                `🍗 *ITENS DO PEDIDO:*%0A` +
-                               (qInteiro > 0 ? `- 1 Frango Inteiro + Batata (${qInteiro}x)%0A` : '') +
-                               (qMeio > 0 ? `- Meio Frango + Batata (${qMeio}x)%0A` : '') +
-                               (qKikwanga > 0 ? `- Kikwanga (${qKikwanga}x)%0A` : '') +
-                               (qFumbua > 0 ? `- Fumbua (${qFumbua}x)%0A` : '') +
-                               (qBanana > 0 ? `- Banana Frita (${qBanana}x)%0A` : '') +
-                               `%0A🛵 *Taxa de Entrega:* KZ ${taxa.toLocaleString('pt-AO')}%0A` +
+                               listaItens.map(i => `- ${i}`).join('%0A') +
+                               `%0A%0A🛵 *Taxa de Entrega:* KZ ${taxa.toLocaleString('pt-AO')}%0A` +
                                `💰 *TOTAL A PAGAR:* KZ ${total.toLocaleString('pt-AO')}`;
 
                 let url = `https://wa.me/${meutelemovel}?text=${mensagem}`;
                 window.open(url, '_blank');
 
             }).catch(error => {
-                alert('Erro ao registar o pedido: ' + error.message);
+                alert('Erro na comunicação com o Caixa: ' + error.message);
             });
         }
     </script>
