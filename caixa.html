@@ -6,12 +6,14 @@
     <title>Painel do Caixa - Franguité Q Participa</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #eceff1; }
-        h1 { color: #263238; text-align: center; }
+        h1 { color: #263238; text-align: center; margin-bottom: 20px; }
         .card-pedido { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 6px solid #ff9800; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .card-pedido.concluido { border-left-color: #4caf50; opacity: 0.7; }
         .status { font-weight: bold; color: #e65100; }
-        .btn-concluir { background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-        .btn-excluir { background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 5px; }
+        .btn-concluir { background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-excluir { background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 5px; font-weight: bold; }
+        .info-cli { font-size: 16px; margin-bottom: 8px; color: #111; }
+        .itens-box { background: #f9f9f9; padding: 10px; border-radius: 6px; margin: 8px 0; border: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -21,63 +23,88 @@
         <p>A carregar pedidos...</p>
     </div>
 
-    <!-- Firebase SDK Compat -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
     <script>
-        const firebaseConfig = {
-            databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
+        const DB_URL = "https://caixa-texte-default-rtdb.firebaseio.com/pedidos";
         const container = document.getElementById('lista-pedidos');
 
-        database.ref('pedidos').on('value', (snapshot) => {
-            container.innerHTML = '';
-            const data = snapshot.val();
+        async function carregarPedidos() {
+            try {
+                let res = await fetch(`${DB_URL}.json`);
+                let data = await res.json();
 
-            if (!data) {
-                container.innerHTML = '<p>Nenhum pedido recebido no momento.</p>';
-                return;
-            }
+                if (!data) {
+                    container.innerHTML = '<p style="text-align:center;">Nenhum pedido recebido no momento.</p>';
+                    return;
+                }
 
-            Object.keys(data).reverse().forEach(key => {
-                const pedido = data[key];
-                const card = document.createElement('div');
-                card.className = `card-pedido ${pedido.status === 'Concluído' ? 'concluido' : ''}`;
+                container.innerHTML = '';
 
-                let itensHTML = '<ul>';
-                pedido.itens.forEach(item => {
-                    itensHTML += `<li>${item.nome} - ${item.preco} Kz</li>`;
+                Object.keys(data).reverse().forEach(key => {
+                    const pedido = data[key];
+                    const card = document.createElement('div');
+                    card.className = `card-pedido ${pedido.status === 'Concluído' ? 'concluido' : ''}`;
+
+                    // Tratamento seguro para os Itens (seja Texto ou Lista de Objetos)
+                    let itensHTML = '';
+                    if (typeof pedido.itens === 'string') {
+                        itensHTML = `<p>${pedido.itens}</p>`;
+                    } else if (Array.isArray(pedido.itens)) {
+                        itensHTML = '<ul>';
+                        pedido.itens.forEach(item => {
+                            if (typeof item === 'string') {
+                                itensHTML += `<li>${item}</li>`;
+                            } else {
+                                itensHTML += `<li>${item.qtd || 1}x ${item.nome || 'Item'} (${item.preco || ''} Kz)</li>`;
+                            }
+                        });
+                        itensHTML += '</ul>';
+                    } else {
+                        itensHTML = '<p>Itens não especificados</p>';
+                    }
+
+                    card.innerHTML = `
+                        <div class="info-cli"><strong>Cliente:</strong> ${pedido.cliente || 'Sem nome'} <small>(${pedido.hora || ''})</small></div>
+                        <p><strong>📍 Endereço:</strong> ${pedido.endereco || 'Não informado'}</p>
+                        <p><strong>💳 Pagamento:</strong> ${pedido.pagamento || 'Não especificado'}</p>
+                        <div class="itens-box">
+                            <strong>🍗 Itens do Pedido:</strong>
+                            ${itensHTML}
+                        </div>
+                        <p style="font-size: 17px; margin-top:5px;"><strong>Total: KZ ${(pedido.total || 0).toLocaleString('pt-AO')}</strong></p>
+                        <p style="margin: 8px 0;">Status: <span class="status">${pedido.status || 'Pendente'}</span></p>
+                        <button class="btn-concluir" onclick="concluirPedido('${key}')">Concluir Pedido</button>
+                        <button class="btn-excluir" onclick="excluirPedido('${key}')">Apagar</button>
+                    `;
+
+                    container.appendChild(card);
                 });
-                itensHTML += '</ul>';
 
-                card.innerHTML = `
-                    <h3>Cliente: ${pedido.cliente} <small>(${pedido.hora})</small></h3>
-                    <p><strong>Pagamento:</strong> ${pedido.pagamento}</p>
-                    <p><strong>Itens:</strong></p>
-                    ${itensHTML}
-                    <p><strong>Total: ${pedido.total} Kz</strong></p>
-                    <p>Status: <span class="status">${pedido.status}</span></p>
-                    <button class="btn-concluir" onclick="concluirPedido('${key}')">Concluir Pedido</button>
-                    <button class="btn-excluir" onclick="excluirPedido('${key}')">Apagar</button>
-                `;
-
-                container.appendChild(card);
-            });
-        });
-
-        function concluirPedido(id) {
-            database.ref('pedidos/' + id).update({ status: 'Concluído' });
-        }
-
-        function excluirPedido(id) {
-            if (confirm('Tem certeza que deseja apagar este pedido?')) {
-                database.ref('pedidos/' + id).remove();
+            } catch (err) {
+                container.innerHTML = `<p style="color:red;">Erro ao carregar os pedidos: ${err.message}</p>`;
             }
         }
+
+        async function concluirPedido(id) {
+            await fetch(`${DB_URL}/${id}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Concluído' })
+            });
+            carregarPedidos();
+        }
+
+        async function excluirPedido(id) {
+            if (confirm('Tem certeza que deseja apagar este pedido?')) {
+                await fetch(`${DB_URL}/${id}.json`, {
+                    method: 'DELETE'
+                });
+                carregarPedidos();
+            }
+        }
+
+        // Atualiza a lista a cada 3 segundos em tempo real
+        carregarPedidos();
+        setInterval(carregarPedidos, 3000);
     </script>
 </body>
 </html>
