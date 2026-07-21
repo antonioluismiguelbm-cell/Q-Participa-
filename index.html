@@ -137,24 +137,7 @@
 
     </div>
 
-    <!-- Firebase SDK (Compatível) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
     <script>
-        // Configuração completa do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCaixaTexteKeyDummy",
-            authDomain: "caixa-texte.firebaseapp.com",
-            databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com",
-            projectId: "caixa-texte"
-        };
-        
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const database = firebase.database();
-
         function calcularTotal() {
             let fInteiro = parseInt(document.getElementById('qtd_f_inteiro').value || 0) * 9000;
             let fMeio = parseInt(document.getElementById('qtd_f_meio').value || 0) * 5000;
@@ -169,7 +152,7 @@
             return { fInteiro, fMeio, kikwanga, fumbua, banana, taxa, total };
         }
 
-        function processarPedido() {
+        async function processarPedido() {
             let nome = document.getElementById('nome').value.trim();
             let endereco = document.getElementById('endereco').value.trim();
             let pagamento = document.getElementById('pagamento').value;
@@ -192,7 +175,6 @@
                 return;
             }
 
-            // Formatação dos itens para o Caixa
             let listaItens = [];
             if (qInteiro > 0) listaItens.push(`${qInteiro}x Frango Inteiro + Batata`);
             if (qMeio > 0) listaItens.push(`${qMeio}x Meio Frango + Batata`);
@@ -214,27 +196,34 @@
                 status: 'Pendente'
             };
 
-            // Guardar no Firebase (nó /pedidos)
-            database.ref('pedidos').push(novoPedido).then(() => {
-                alert("Pedido enviado para o Caixa com sucesso!");
+            // Enviar DIRETAMENTE para o Firebase via API REST
+            try {
+                let response = await fetch('https://caixa-texte-default-rtdb.firebaseio.com/pedidos.json', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(novoPedido)
+                });
 
-                // Redireciona para o WhatsApp do restaurante
-                let meutelemovel = "244927444003"; 
-                let mensagem = `*NOVO PEDIDO - FRANGUITÉ Q PARTICIPA*%0A%0A` +
-                               `👤 *Cliente:* ${nome}%0A` +
-                               `📍 *Endereço:* ${endereco}%0A` +
-                               `💳 *Pagamento:* ${pagamento}%0A%0A` +
-                               `🍗 *ITENS DO PEDIDO:*%0A` +
-                               listaItens.map(i => `- ${i}`).join('%0A') +
-                               `%0A%0A🛵 *Taxa de Entrega:* KZ ${taxa.toLocaleString('pt-AO')}%0A` +
-                               `💰 *TOTAL A PAGAR:* KZ ${total.toLocaleString('pt-AO')}`;
+                if (response.ok) {
+                    // Abrir o WhatsApp após gravar com sucesso na base de dados
+                    let meutelemovel = "244927444003"; 
+                    let mensagem = `*NOVO PEDIDO - FRANGUITÉ Q PARTICIPA*%0A%0A` +
+                                   `👤 *Cliente:* ${nome}%0A` +
+                                   `📍 *Endereço:* ${endereco}%0A` +
+                                   `💳 *Pagamento:* ${pagamento}%0A%0A` +
+                                   `🍗 *ITENS DO PEDIDO:*%0A` +
+                                   listaItens.map(i => `- ${i}`).join('%0A') +
+                                   `%0A%0A🛵 *Taxa de Entrega:* KZ ${taxa.toLocaleString('pt-AO')}%0A` +
+                                   `💰 *TOTAL A PAGAR:* KZ ${total.toLocaleString('pt-AO')}`;
 
-                let url = `https://wa.me/${meutelemovel}?text=${mensagem}`;
-                window.open(url, '_blank');
-
-            }).catch(error => {
-                alert('Erro na comunicação com o Caixa: ' + error.message);
-            });
+                    let url = `https://wa.me/${meutelemovel}?text=${mensagem}`;
+                    window.open(url, '_blank');
+                } else {
+                    alert('Ocorreu um erro ao gravar o pedido na página do caixa.');
+                }
+            } catch (err) {
+                alert('Erro de rede ao enviar pedido para a página do caixa: ' + err.message);
+            }
         }
     </script>
 </body>
