@@ -1,0 +1,90 @@
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // Suas chaves das imagens:
+    const firebaseConfig = {
+      authDomain: "caixa-participa.firebaseapp.com",
+      databaseURL: "https://caixa-participa-default-rtdb.firebaseio.com",
+      projectId: "caixa-participa",
+      storageBucket: "caixa-participa.firebasestorage.app",
+      messagingSenderId: "794078215128",
+      appId: "1:794078215128:web:b62d34..."
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.calcularTotal = function() {
+        let fInteiro = parseInt(document.getElementById('qtd_f_inteiro').value || 0) * 9000;
+        let fMeio = parseInt(document.getElementById('qtd_f_meio').value || 0) * 5000;
+        let kikwanga = parseInt(document.getElementById('qtd_kikwanga').value || 0) * 1000;
+        let fumbua = parseInt(document.getElementById('qtd_fumbua').value || 0) * 1000;
+        let banana = parseInt(document.getElementById('qtd_banana').value || 0) * 1000;
+        
+        let taxa = parseInt(document.getElementById('taxa').value || 0);
+        let total = fInteiro + fMeio + kikwanga + fumbua + banana + taxa;
+        
+        document.getElementById('exibirTotal').innerText = "Total: KZ " + total.toLocaleString('pt-AO');
+        return { fInteiro, fMeio, kikwanga, fumbua, banana, taxa, total };
+    }
+
+    window.enviarWhatsApp = function() {
+        let nome = document.getElementById('nome').value;
+        let endereco = document.getElementById('endereco').value;
+        
+        let qInteiro = document.getElementById('qtd_f_inteiro').value;
+        let qMeio = document.getElementById('qtd_f_meio').value;
+        let qKikwanga = document.getElementById('qtd_kikwanga').value;
+        let qFumbua = document.getElementById('qtd_fumbua').value;
+        let qBanana = document.getElementById('qtd_banana').value;
+
+        let { total, taxa } = window.calcularTotal();
+
+        if (!nome || !endereco) {
+            alert("Por favor, preencha o seu nome e endereço de entrega!");
+            return;
+        }
+
+        if ((parseInt(qInteiro) + parseInt(qMeio) + parseInt(qKikwanga) + parseInt(qFumbua) + parseInt(qBanana)) === 0) {
+            alert("Selecione pelo menos um item do cardápio!");
+            return;
+        }
+
+        // Monta o resumo dos itens
+        let itensTexto = "";
+        if (qInteiro > 0) itensTexto += `• ${qInteiro}x Frango Inteiro + Batata\n`;
+        if (qMeio > 0) itensTexto += `• ${qMeio}x Meio Frango + Batata\n`;
+        if (qKikwanga > 0) itensTexto += `• ${qKikwanga}x Kikwanga\n`;
+        if (qFumbua > 0) itensTexto += `• ${qFumbua}x Fumbua\n`;
+        if (qBanana > 0) itensTexto += `• ${qBanana}x Banana Frita\n`;
+
+        // 1. Envia em tempo real para o Painel do Caixa
+        push(ref(db, 'pedidos/'), {
+            nome: nome,
+            endereco: endereco,
+            itens: itensTexto,
+            total: total,
+            taxa: taxa,
+            estado: 'pendente',
+            hora: new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })
+        });
+
+        // 2. Abre o WhatsApp do Restaurante
+        let meutelemovel = "244927444003"; 
+        let mensagem = `*NOVO PEDIDO - FRANGUITÉ Q PARTICIPA*%0A%0A` +
+                       `👤 *Cliente:* ${nome}%0A` +
+                       `📍 *Endereço:* ${endereco}%0A%0A` +
+                       `🍗 *ITENS DO PEDIDO:*%0A` +
+                       (qInteiro > 0 ? `- 1 Frango Inteiro + Batata (${qInteiro}x)%0A` : '') +
+                       (qMeio > 0 ? `- Meio Frango + Batata (${qMeio}x)%0A` : '') +
+                       (qKikwanga > 0 ? `- Kikwanga (${qKikwanga}x)%0A` : '') +
+                       (qFumbua > 0 ? `- Fumbua (${qFumbua}x)%0A` : '') +
+                       (qBanana > 0 ? `- Banana Frita (${qBanana}x)%0A` : '') +
+                       `%0A🛵 *Taxa de Entrega:* KZ ${taxa.toLocaleString('pt-AO')}%0A` +
+                       `💰 *TOTAL A PAGAR:* KZ ${total.toLocaleString('pt-AO')}`;
+
+        let url = `https://wa.me/${meutelemovel}?text=${mensagem}`;
+        window.open(url, '_blank');
+    }
+</script>
