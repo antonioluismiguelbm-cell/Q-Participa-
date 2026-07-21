@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Franguité Q Participa - Caixa</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; color: #333; padding: 15px; }
+
+        /* Header Laranja/Vermelho */
+        header { 
+            background: linear-gradient(135deg, #d82300, #e65100); 
+            color: white; 
+            padding: 15px; 
+            border-radius: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .header-title h1 { font-size: 18px; font-weight: bold; }
+        .clock-badge {
+            background-color: rgba(0, 0, 0, 0.25);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Banner de Alerta / Ativação de Som */
+        .alert-banner {
+            background-color: #fff3e0;
+            border: 1px solid #ffe0b2;
+            color: #e65100;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .alert-banner.alarm {
+            background-color: #ffebee;
+            border: 2px solid #f44336;
+            color: #c62828;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        /* Container de Pedidos */
+        .pedidos-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Card do Pedido (Estilo exato da foto) */
+        .card-pedido {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 6px solid #e65100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .pedido-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+
+        .pedido-id { font-size: 16px; font-weight: bold; color: #222; }
+        .pedido-hora { font-size: 13px; font-weight: bold; color: #555; }
+
+        .cliente-box {
+            background-color: #fafafa;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 12px;
+            color: #444;
+        }
+
+        .itens-tabela {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .itens-tabela td {
+            padding: 4px 0;
+            color: #333;
+        }
+
+        .itens-tabela td.preco {
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .total-row {
+            text-align: right;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e7d32;
+            margin: 10px 0 15px;
+        }
+
+        .btn-concluir {
+            width: 100%;
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-concluir:hover { background-color: #1b5e20; }
+    </style>
+
+    <!-- Conexão Firebase -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+      import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCKtjDx01n_sVQjf9qF",
+        authDomain: "caixa-participa.firebaseapp.com",
+        databaseURL: "https://caixa-participa-default-rtdb.firebaseio.com",
+        projectId: "caixa-participa",
+        storageBucket: "caixa-participa.firebasestorage.app",
+        messagingSenderId: "794078215128",
+        appId: "1:794078215128:web:b62d34"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      let primeiroCarregamento = true;
+      let audioCtx = null;
+      let alarmeInterval = null;
+
+      // Inicializa o Áudio ao clicar no banner
+      window.ativarSom = function() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        document.getElementById('banner-som').style.display = 'none';
+      };
+
+      // Tocar som de alarme
+      function tocarAlarme() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota La
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+
+      window.silenciarAlarme = function() {
+        if (alarmeInterval) {
+            clearInterval(alarmeInterval);
+            alarmeInterval = null;
+        }
+        const banner = document.getElementById('banner-alarme');
+        banner.style.display = 'none';
+      };
+
+      function dispararAlerta() {
+        const banner = document.getElementById('banner-alarme');
+        banner.style.display = 'block';
+        
+        if (!alarmeInterval) {
+            alarmeInterval = setInterval(() => {
+                tocarAlarme();
+            }, 800);
+        }
+      }
+
+      // Escuta novos pedidos
+      const pedidosRef = ref(db, 'pedidos/');
+      onValue(pedidosRef, (snapshot) => {
+        const data = snapshot.val();
+        
+        if (!primeiroCarregamento && data) {
+            // Verifica se há pedidos pendentes recentes
+            const possuiPendente = Object.values(data).some(p => p.estado === 'pendente' || !p.estado);
+            if (possuiPendente) dispararAlerta();
+        }
+        
+        primeiroCarregamento = false;
+        renderizarPedidos(data);
+      });
+
+      window.concluirPedido = function(id) {
+        update(ref(db, 'pedidos/' + id), { estado: 'concluido' });
+      };
+    </script>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>🍗 Franguité Q Participa - Caixa</h1>
+        </div>
+        <div class="clock-badge" id="relogio">00:00:00</div>
+    </header>
+
+    <!-- Banner para Ativar Som Inicial -->
+    <div class="alert-banner" id="banner-som" onclick="ativarSom()">
+        🔔 Clica aqui uma vez ao abrir a página para ATIVAR o Som das Notificações
+    </div>
+
+    <!-- Banner de Novo Pedido (Silenciar) -->
+    <div class="alert-banner alarm" id="banner-alarme" style="display: none;" onclick="silenciarAlarme()">
+        🚨 NOVO PEDIDO CHEGOU! Clica aqui para silenciar o alarme
+    </div>
+
+    <div class="pedidos-list" id="container-pedidos">
+        <p style="text-align:center; color:#888; margin-top:20px;">A carregar pedidos...</p>
+    </div>
+
+    <script>
+        // Relógio do Header
+        function atualizarRelogio() {
+            const agora = new Date();
+            document.getElementById('relogio').innerText = agora.toLocaleTimeString('pt-AO');
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+
+        // Renderizador de Pedidos
+        function renderizarPedidos(pedidos) {
+            const container = document.getElementById('container-pedidos');
+            if (!pedidos) {
+                container.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Nenhum pedido ativo no momento.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            // Filtra e exibe os pedidos não concluídos (ou todos por ordem do mais recente)
+            Object.keys(pedidos).reverse().forEach(key => {
+                const p = pedidos[key];
+                
+                // Ignora concluídos se quiser manter a tela limpa
+                if (p.estado === 'concluido') return;
+
+                const card = document.createElement('div');
+                card.className = 'card-pedido';
+
+                // Transforma o texto dos itens em linhas de tabela
+                let linhasItens = '';
+                if (p.itens) {
+                    const lista = p.itens.split('\n');
+                    lista.forEach(item => {
+                        if (item.trim()) {
+                            linhasItens += `
+                                <tr>
+                                    <td>${item.replace('•', '').trim()}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
+
+                card.innerHTML = `
+                    <div class="pedido-top">
+                        <span class="pedido-id">Pedido #${key.substr(-4)}</span>
+                        <span class="pedido-hora">${p.hora || ''}</span>
+                    </div>
+                    
+                    <div class="cliente-box">
+                        <b>Cliente:</b> ${p.nome}<br>
+                        <b>Obs:</b> Endereço: ${p.endereco}
+                    </div>
+
+                    <table class="itens-tabela">
+                        ${linhasItens}
+                    </table>
+
+                    <div class="total-row">Total: KZ ${p.total ? p.total.toLocaleString('pt-AO') : '0'}</div>
+
+                    <button class="btn-concluir" onclick="concluirPedido('${key}')">
+                        ✔ Concluir / Confeccionado
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+
+            if (container.innerHTML === '') {
+                container.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Todos os pedidos foram concluídos! 🎉</p>';
+            }
+        }
+    </script>
+</body>
+</html>
