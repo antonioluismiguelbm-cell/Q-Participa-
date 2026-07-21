@@ -86,3 +86,22 @@
     </script>
 </body>
 </html>
+npm install firebase
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyArdqtlFmHN0aIS_cE8OUtlXxnPv9-CwSs",
+  authDomain: "caixa-texte.firebaseapp.com",
+  databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com",
+  projectId: "caixa-texte",
+  storageBucket: "caixa-texte.firebasestorage.app",
+  messagingSenderId: "367215591375",
+  appId: "1:367215591375:web:10e3132d8ba088f1891cba"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
