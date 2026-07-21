@@ -4,104 +4,119 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Caixa - Franguité Q Participa</title>
+
+    <!-- Firebase SDK Compat (Ideal para GitHub Pages e HTML puro) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #eceff1; }
-        h1 { color: #263238; text-align: center; }
-        .card-pedido { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 6px solid #ff9800; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; padding: 15px; }
+        header { background-color: #b71c1c; color: white; padding: 15px; text-align: center; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        header h1 { font-size: 20px; }
+        .status-bar { text-align: center; margin-bottom: 15px; font-size: 14px; color: #666; font-weight: bold; }
+        #lista-pedidos { display: flex; flex-direction: column; gap: 15px; max-width: 600px; margin: 0 auto; }
+        .card-pedido { background: white; border-radius: 8px; padding: 15px; border-left: 6px solid #ff9800; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
         .card-pedido.concluido { border-left-color: #4caf50; opacity: 0.7; }
-        .status { font-weight: bold; color: #e65100; }
-        .btn-concluir { background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-        .btn-excluir { background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 5px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; }
+        .cliente-nome { font-weight: bold; font-size: 16px; color: #111; }
+        .hora-pedido { font-size: 12px; color: #888; }
+        .detalhes-pedido { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+        .total-pedido { font-weight: bold; font-size: 16px; color: #b71c1c; margin-top: 5px; }
+        .acoes { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-concluir { background-color: #4caf50; color: white; }
+        .btn-excluir { background-color: #f44336; color: white; }
+        .vazio { text-align: center; padding: 30px; color: #888; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <h1>💻 Painel do Caixa em Tempo Real</h1>
+    <header>
+        <h1>🍗 Franguité Q Participa — Painel do Caixa</h1>
+    </header>
+
+    <div class="status-bar" id="status-conexao">🔄 Conectando ao Firebase...</div>
+
     <div id="lista-pedidos">
-        <p>A carregar pedidos...</p>
+        <div class="vazio">Aguardando novos pedidos...</div>
     </div>
 
-    <!-- Firebase SDK Compat (Origem) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
     <script>
+        // AS TUAS CREDENCIAIS EXATAS DO NOVO FIREBASE
         const firebaseConfig = {
-            databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyD-xiOuu-DyvLgDnslK-Lmho78FxTqkOh8",
+            authDomain: "q-participa-8793b.firebaseapp.com",
+            databaseURL: "https://q-participa-8793b-default-rtdb.firebaseio.com",
+            projectId: "q-participa-8793b",
+            storageBucket: "q-participa-8793b.firebasestorage.app",
+            messagingSenderId: "364737736016",
+            appId: "1:364737736016:web:ce90969cd41a28f6a75055"
         };
+
+        // Inicializar o Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        const container = document.getElementById('lista-pedidos');
+        const statusEl = document.getElementById('status-conexao');
+        const listaEl = document.getElementById('lista-pedidos');
 
+        // Escutar novos pedidos em tempo real
         database.ref('pedidos').on('value', (snapshot) => {
-            container.innerHTML = '';
-            const data = snapshot.val();
+            statusEl.innerText = "🟢 Conectado ao Caixa em Tempo Real";
+            statusEl.style.color = "green";
+            
+            const pedidos = snapshot.val();
+            listaEl.innerHTML = '';
 
-            if (!data) {
-                container.innerHTML = '<p>Nenhum pedido recebido no momento.</p>';
+            if (!pedidos) {
+                listaEl.innerHTML = '<div class="vazio">Nenhum pedido no momento.</div>';
                 return;
             }
 
-            Object.keys(data).reverse().forEach(key => {
-                const pedido = data[key];
-                const card = document.createElement('div');
-                card.className = `card-pedido ${pedido.status === 'Concluído' ? 'concluido' : ''}`;
+            const chaves = Object.keys(pedidos).reverse();
 
-                // Formatação dos itens para não quebrar a página
-                let itensExibicao = '';
-                if (typeof pedido.itens === 'string') {
-                    itensExibicao = `<p>${pedido.itens}</p>`;
-                } else if (Array.isArray(pedido.itens)) {
-                    itensExibicao = '<ul>' + pedido.itens.map(i => `<li>${typeof i === 'string' ? i : i.nome}</li>`).join('') + '</ul>';
-                } else {
-                    itensExibicao = '<p>Itens diversos</p>';
-                }
+            chaves.forEach((id) => {
+                const item = pedidos[id];
+                const card = document.createElement('div');
+                card.className = `card-pedido ${item.status === 'Concluído' ? 'concluido' : ''}`;
 
                 card.innerHTML = `
-                    <h3>Cliente: ${pedido.cliente || 'Anónimo'} <small>(${pedido.hora || ''})</small></h3>
-                    <p><strong>Endereço:</strong> ${pedido.endereco || 'Não especificado'}</p>
-                    <p><strong>Pagamento:</strong> ${pedido.pagamento || 'N/A'}</p>
-                    <p><strong>Itens:</strong></p>
-                    ${itensExibicao}
-                    <p><strong>Total: KZ ${(pedido.total || 0).toLocaleString('pt-AO')}</strong></p>
-                    <p>Status: <span class="status">${pedido.status || 'Pendente'}</span></p>
-                    <button class="btn-concluir" onclick="concluirPedido('${key}')">Concluir Pedido</button>
-                    <button class="btn-excluir" onclick="excluirPedido('${key}')">Apagar</button>
+                    <div class="card-header">
+                        <span class="cliente-nome">👤 ${item.cliente || 'Cliente'}</span>
+                        <span class="hora-pedido">⏰ ${item.hora || ''}</span>
+                    </div>
+                    <div class="detalhes-pedido">
+                        <div><strong>📍 Endereço:</strong> ${item.endereco || 'Não informado'}</div>
+                        <div><strong>💳 Pagamento:</strong> ${item.pagamento || 'N/A'}</div>
+                        <div style="margin-top:6px;"><strong>🍗 Itens:</strong> ${item.itens || item.descricao || 'Sem detalhes'}</div>
+                        <div class="total-pedido">Total: KZ ${(item.total || 0).toLocaleString('pt-AO')}</div>
+                    </div>
+                    <div class="acoes">
+                        <button class="btn-concluir" onclick="marcarConcluido('${id}')">
+                            ${item.status === 'Concluído' ? '✓ Concluído' : 'Concluir Pedido'}
+                        </button>
+                        <button class="btn-excluir" onclick="removerPedido('${id}')">🗑️ Eliminar</button>
+                    </div>
                 `;
 
-                container.appendChild(card);
+                listaEl.appendChild(card);
             });
+        }, (error) => {
+            statusEl.innerText = "🔴 Erro ao conectar com a base de dados!";
+            statusEl.style.color = "red";
+            console.error(error);
         });
 
-        function concluirPedido(id) {
+        function marcarConcluido(id) {
             database.ref('pedidos/' + id).update({ status: 'Concluído' });
         }
 
-        function excluirPedido(id) {
-            if (confirm('Tem certeza que deseja apagar este pedido?')) {
+        function removerPedido(id) {
+            if (confirm("Tens a certeza que queres apagar este pedido?")) {
                 database.ref('pedidos/' + id).remove();
             }
         }
     </script>
 </body>
 </html>
-npm install firebase
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyArdqtlFmHN0aIS_cE8OUtlXxnPv9-CwSs",
-  authDomain: "caixa-texte.firebaseapp.com",
-  databaseURL: "https://caixa-texte-default-rtdb.firebaseio.com",
-  projectId: "caixa-texte",
-  storageBucket: "caixa-texte.firebasestorage.app",
-  messagingSenderId: "367215591375",
-  appId: "1:367215591375:web:10e3132d8ba088f1891cba"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
